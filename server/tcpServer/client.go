@@ -61,7 +61,7 @@ func (c *client) readInput(db *mongo.Client) {
 				args:   args,
 				db:     db,
 			}
-		case "/signUp": //  регистрация
+		case "/signup": //  регистрация
 			if c.loggedIn {
 				c.err(fmt.Errorf("уже авторизован: %s", cmd))
 				break

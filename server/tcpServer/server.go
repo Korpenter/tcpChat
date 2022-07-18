@@ -140,7 +140,7 @@ func (s *server) login(c *client, args []string, db *mongo.Client) {
 		s.online = append(s.online, c)
 		return
 	} else {
-		c.err(errors.New("неверный логин или пароль"))
+		c.err(errors.New("неверный пароль"))
 		return
 	}
 }
