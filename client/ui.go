@@ -9,7 +9,7 @@ import (
 )
 
 // лого на окне авторизации
-var logo = `                       __           __   
+var logo = `       		   			           __           __   
   __________   ____ |  | __ _____/  |_ 
  /  ___/  _ \_/ ___\|  |/ // __ \   __\
  \___ (  <_> )  \___|    <\  ___/|  |  
@@ -38,12 +38,15 @@ func newChatView(conn net.Conn) *chatView {
 		tui.NewLabel("/rooms - доступные комнаты"),
 		tui.NewLabel("/join - войти в комнату"),
 		tui.NewLabel("/quit - выйти"),
-
 		tui.NewLabel("текст без '/' - сообщение"),
+		tui.NewLabel("Перемещение"),
+		tui.NewLabel("UpArrow - пролистать чат вверх"),
+		tui.NewLabel("DownArrow - пролистать чат вниз"),
+		tui.NewLabel("LeftArrow - первое сообщение"),
+		tui.NewLabel("RightArrow - последнее сообщение"),
 		tui.NewSpacer(),
 	)
 	sidebar.SetBorder(true) // видимая граница панели
-
 	view.history = tui.NewVBox()
 
 	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки сообщений

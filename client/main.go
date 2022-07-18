@@ -57,8 +57,8 @@ func main() {
 				if !loggedIn { // если не авторизован рендерится окно авторизации
 					switch msg {
 					case "успешная регистрация", "успешный вход": // если успешная авторизация
-						ui.SetWidget(chatView) // смена окна на чат
-						loggedIn = true        // установка фалага авторизации
+						ui.Update(func() { ui.SetWidget(chatView) }) // смена окна на чат
+						loggedIn = true                              // установка фалага авторизации
 						break l
 					default: // если безуспешная авторизация - выводится статус ошибки
 						ui.Update(func() {
@@ -72,6 +72,7 @@ func main() {
 					chatView.history.Append(tui.NewHBox(
 						tui.NewLabel(fmt.Sprintf("%v", msg)),
 					))
+					chatView.historyScroll.Scroll(0, 1)
 				})
 			case io.EOF:
 				log.Println("Сервер закрыл соединение")
