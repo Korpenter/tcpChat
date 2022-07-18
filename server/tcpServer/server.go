@@ -97,6 +97,7 @@ func (s *server) login(c *client, args []string, db *mongo.Client) {
 	defer cancel()
 	fmt.Println("Новая попытка входа: ", args)
 	fmt.Println(s.online)
+
 	// проверка авторизована ли эта учетная запись, и отключение авторизованног клиента в этом случае
 	for i, v := range s.online {
 		fmt.Println(args[1], v)
