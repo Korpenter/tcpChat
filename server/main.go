@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"tcpSocketChat/tcpServer"
+	"tcpSocketChat/tcpChatServer"
 )
 
 func main() {
 	var port int
 	fmt.Println("Введите порт для запуска сервера: ") // выбор порта для сервера
 	fmt.Scanln(&port)                                 // ввод порта
-	tcpServer.Start(port)                             // запуск сервера
+	tcpChatServer.Start(port)                         // запуск сервера
 	for {
 	}
 }

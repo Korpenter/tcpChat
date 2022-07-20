@@ -2,7 +2,10 @@ module tcpSocketChat-client
 
 go 1.18
 
-require github.com/marcusolsson/tui-go v0.4.0
+require (
+	github.com/marcusolsson/tui-go v0.4.0
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
+)
 
 require (
 	github.com/gdamore/encoding v0.0.0-20151215212835-b23993cbb635 // indirect

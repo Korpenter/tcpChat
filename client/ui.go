@@ -16,7 +16,7 @@ var logo = `       		   			           __           __
 /____  >____/ \___  >__|_ \\___  >__|  
      \/           \/     \/    \/     `
 
-type chatView struct { // модель окна чата
+type boxView struct { // модель окна чата и файлов
 	tui.Box
 	history       *tui.Box
 	historyScroll *tui.ScrollArea
@@ -31,20 +31,22 @@ type loginView struct { // модель окна авторизации
 }
 
 // newChatView возвращает новое окно чата
-func newChatView(conn net.Conn) *chatView {
-	view := &chatView{}
+func newChatView(out chan []byte) *boxView {
+	view := &boxView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
-		tui.NewLabel("/rooms - доступные комнаты"),
-		tui.NewLabel("/join - войти в комнату"),
-		tui.NewLabel("/quit - выйти"),
-		tui.NewLabel("текст без '/' - сообщение"),
-		tui.NewLabel("Перемещение"),
-		tui.NewLabel("UpArrow - пролистать чат вверх"),
-		tui.NewLabel("DownArrow - пролистать чат вниз"),
-		tui.NewLabel("LeftArrow - первое сообщение"),
-		tui.NewLabel("RightArrow - последнее сообщение"),
+		tui.NewLabel("доступные комнаты:\n/rooms"),
+		tui.NewLabel("войти в комнату:\n/join"),
+		tui.NewLabel("выйти:\n/quit"),
+		tui.NewLabel("сообщение:\nтекст без '/'"),
+		tui.NewLabel("перейти в окно файлов:\n/files"),
+		tui.NewLabel("\nПеремещение"),
+		tui.NewLabel("пролистать чат вверх:\nUpArrow"),
+		tui.NewLabel("пролистать чат вниз:\nDownArrow"),
+		tui.NewLabel("первое сообщение:\nLeftArrow"),
+		tui.NewLabel("последнее сообщение:\nRightArrow"),
 		tui.NewSpacer(),
+		tui.NewLabel("\nTab - переход в окно файлов"),
 	)
 	sidebar.SetBorder(true) // видимая граница панели
 	view.history = tui.NewVBox()
@@ -66,18 +68,15 @@ func newChatView(conn net.Conn) *chatView {
 	chat := tui.NewVBox(historyBox, inputBox) // компоновка элементов в вертикальном формате
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
 
-	input.OnSubmit(func(e *tui.Entry) { // при подтверждении ввода на Enter
+	input.OnSubmit(func(e *tui.Entry) {
 		if e.Text() != "" { // если ввод не пуст
 			msg := strings.TrimSpace(e.Text()) // удаление пробелов
 			if !strings.HasPrefix(msg, "/") {  // если нет слеша, то отправляется, как обычное сообщение
 				msg = "/msg " + msg
 			}
-			_, err := conn.Write([]byte(msg + "\n")) // запись в соединие
-			view.historyScroll.ScrollToBottom()      // прокрутка вниз при отправке сообщения
-			if err != nil {
-				log.Printf("ошибка записи `%s` err: %s\n", msg, err.Error())
-			}
-			e.SetText("") // сброс ввода
+			out <- []byte(msg + "\n")           // запись в канал
+			view.historyScroll.ScrollToBottom() // прокрутка вниз при отправке сообщения
+			e.SetText("")                       // сброс ввода
 		}
 	})
 
@@ -92,7 +91,63 @@ func newChatView(conn net.Conn) *chatView {
 	return view
 }
 
-// newChatView возвращает новое окно чата
+// newFileView возвращает новое окно для файлов
+func newFileView(out2 chan []byte) *boxView {
+	view := &boxView{}
+	sidebar := tui.NewVBox( // боковая панель с подксказками
+		tui.NewLabel("Команды"),
+
+		tui.NewLabel("просмотр общих файлов:\nlist"),
+		tui.NewLabel("скачать общий файл:\ndownload <filename>"),
+		tui.NewLabel("загрузить общий:\nupload <filename>"),
+		tui.NewLabel("\nПеремещение"),
+		tui.NewLabel("пролистать окно файлов вверх:\nUpArrow"),
+		tui.NewLabel("пролистать окно файлов вниз:\nDownArrow"),
+		tui.NewLabel("первое файл:\nLeftArrow"),
+		tui.NewLabel("последнее файл:\nRightArrow"),
+		tui.NewSpacer(),
+		tui.NewLabel("Tab - переход в окно чата"),
+	)
+	sidebar.SetBorder(true) // видимая граница панели
+	view.history = tui.NewVBox()
+
+	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки файлов
+	view.historyScroll.ScrollToBottom()
+
+	historyBox := tui.NewVBox(view.historyScroll)
+	historyBox.SetBorder(true)
+
+	input := tui.NewEntry() // добавление окна для ввода команд, сообщений
+	input.SetFocused(true)
+	input.SetSizePolicy(tui.Expanding, tui.Maximum)
+
+	inputBox := tui.NewHBox(input)
+	inputBox.SetBorder(true)
+	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
+
+	chat := tui.NewVBox(historyBox, inputBox) // компоновка элементов в вертикальном формате
+	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
+	input.OnSubmit(func(e *tui.Entry) {
+		if e.Text() != "" { // если ввод не пуст
+			//msg := strings.TrimSpace(e.Text())  // удаление пробелов
+			//getFile(conn2, msg)                 // запись в канал
+			view.historyScroll.ScrollToBottom() // прокрутка вниз при отправке сообщения
+			e.SetText("")                       // сброс ввода
+		}
+	})
+
+	view.layout = tui.NewHBox( // компановка в горизонтальном формате
+		chat,
+		sidebar,
+	)
+
+	view.layout.SetBorder(false) // установка границы всего окна
+	view.Append(view.layout)
+
+	return view
+}
+
+// newLoginView возвращает новое окно авторизации
 func newLoginView(conn net.Conn) *loginView {
 	view := &loginView{}
 
