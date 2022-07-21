@@ -42,18 +42,20 @@ func (c *client) readInput(db *mongo.Client) {
 		}
 
 		msg = strings.Trim(msg, "\r\n")
-
+		fmt.Println("msg = ", msg)
 		args := strings.Split(msg, " ")
+		fmt.Println("args = ", args)
 		cmd := strings.TrimSpace(args[0])
+		fmt.Println("cmd = ", cmd)
 		switch cmd { // выполнение блока в зависимости от команды
 		case "/login": // авторизация
 			if c.loggedIn { // если уже авторизован
-				c.err(fmt.Errorf("уже авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("уже авторизован: %s", cmd))
 				break
 			}
 			// проверка на наличие недопустимых символов
 			if !alphaNumeric(args[1:]) {
-				c.err(fmt.Errorf("недопустимые символы в запросе, %s", msg))
+				c.notif(fmt.Sprintf("недопустимые символы в запросе, %s", cmd))
 				break
 			}
 			c.commands <- command{ // отправление команды в канал команд пользователя для выполнения
@@ -64,11 +66,11 @@ func (c *client) readInput(db *mongo.Client) {
 			}
 		case "/signup": //  регистрация
 			if c.loggedIn {
-				c.err(fmt.Errorf("уже авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("уже авторизован: %s", cmd))
 				break
 			}
 			if !alphaNumeric(args[1:]) {
-				c.err(fmt.Errorf("недопустимые символы в запросе, %s", msg))
+				c.notif(fmt.Sprintf("недопустимые символы в запросе, %s", cmd))
 				break
 			}
 			c.commands <- command{
@@ -79,7 +81,7 @@ func (c *client) readInput(db *mongo.Client) {
 			}
 		case "/rooms": // список комнат
 			if !c.loggedIn {
-				c.err(fmt.Errorf("не авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
@@ -89,7 +91,7 @@ func (c *client) readInput(db *mongo.Client) {
 			}
 		case "/join": // вход в комнату
 			if !c.loggedIn { // если не авторизован
-				c.err(fmt.Errorf("не авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
@@ -99,7 +101,7 @@ func (c *client) readInput(db *mongo.Client) {
 			}
 		case "/msg": // отправка сообщения
 			if !c.loggedIn {
-				c.err(fmt.Errorf("не авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
@@ -109,7 +111,7 @@ func (c *client) readInput(db *mongo.Client) {
 			}
 		case "/download": // скачка файла
 			if !c.loggedIn {
-				c.err(fmt.Errorf("не авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
@@ -117,9 +119,38 @@ func (c *client) readInput(db *mongo.Client) {
 				client: c,
 				args:   args,
 			}
+		case "/startdsend": // скачка файла
+			if !c.loggedIn {
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
+				break
+			}
+			c.commands <- command{
+				id:     CMD_STARTSEND,
+				client: c,
+				args:   args,
+			}
+		case "/upload": // скачка файла
+			if !c.loggedIn {
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
+				break
+			}
+			c.commands <- command{
+				id:     CMD_STARTSGET,
+				client: c,
+				args:   args,
+			}
+		case "/list": // скачка файла
+			if !c.loggedIn {
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
+				break
+			}
+			c.commands <- command{
+				id:     CMD_FILES,
+				client: c,
+			}
 		case "/quit": // отключение
 			if !c.loggedIn {
-				c.err(fmt.Errorf("не авторизован: %s", cmd))
+				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
@@ -128,18 +159,27 @@ func (c *client) readInput(db *mongo.Client) {
 				args:   args,
 			}
 		default: // если команда не существует
-			c.err(fmt.Errorf("такой команды нет: %s", cmd))
+			c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 		}
 	}
 }
 
 // отправка ошибки пользоватлю
-func (c *client) err(err error) {
-	c.chatConn.Write([]byte("ERR: " + err.Error() + "\n"))
+func (c *client) notif(msg string) {
+	c.chatConn.Write([]byte("| " + msg + "\n"))
 }
 
 // отправка сообщения пользователю
 func (c *client) msg(msg string) {
-	fmt.Println(msg)
 	c.chatConn.Write([]byte(msg + "\n"))
+}
+
+// отправка сообщения пользователю
+func (c *client) msgFile(msg string) {
+	c.fileConn.Write([]byte(msg + "\n"))
+}
+
+// отправка сообщения пользователю
+func (c *client) notifFile(msg string) {
+	c.fileConn.Write([]byte("| " + msg + "\n"))
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/marcusolsson/tui-go"
-	"log"
 	"net"
 	"strings"
 )
@@ -21,7 +20,7 @@ type boxView struct { // модель окна чата и файлов
 	history       *tui.Box
 	historyScroll *tui.ScrollArea
 	layout        *tui.Box
-	sidebar       *tui.Box
+	status        *tui.StatusBar
 }
 
 type loginView struct { // модель окна авторизации
@@ -30,8 +29,19 @@ type loginView struct { // модель окна авторизации
 	status *tui.StatusBar
 }
 
+var commands = map[string]string{
+	"/rooms":    "chat",
+	"/join":     "chat",
+	"/quit":     "chat",
+	"/msg":      "chat",
+	"/list":     "file",
+	"/download": "file",
+	"/upload":   "file",
+}
+
 // newChatView возвращает новое окно чата
 func newChatView(out chan []byte) *boxView {
+
 	view := &boxView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
@@ -39,16 +49,16 @@ func newChatView(out chan []byte) *boxView {
 		tui.NewLabel("войти в комнату:\n/join"),
 		tui.NewLabel("выйти:\n/quit"),
 		tui.NewLabel("сообщение:\nтекст без '/'"),
-		tui.NewLabel("перейти в окно файлов:\n/files"),
 		tui.NewLabel("\nПеремещение"),
 		tui.NewLabel("пролистать чат вверх:\nUpArrow"),
 		tui.NewLabel("пролистать чат вниз:\nDownArrow"),
 		tui.NewLabel("первое сообщение:\nLeftArrow"),
 		tui.NewLabel("последнее сообщение:\nRightArrow"),
 		tui.NewSpacer(),
-		tui.NewLabel("\nTab - переход в окно файлов"),
+		tui.NewLabel("Tab - переход в окно чата"),
 	)
 	sidebar.SetBorder(true) // видимая граница панели
+	sidebar.SetTitle("Помощь")
 	view.history = tui.NewVBox()
 
 	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки сообщений
@@ -56,6 +66,7 @@ func newChatView(out chan []byte) *boxView {
 
 	historyBox := tui.NewVBox(view.historyScroll)
 	historyBox.SetBorder(true)
+	historyBox.SetTitle("Чат")
 
 	input := tui.NewEntry() // добавление окна для ввода команд, сообщений
 	input.SetFocused(true)
@@ -65,7 +76,14 @@ func newChatView(out chan []byte) *boxView {
 	inputBox.SetBorder(true)
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
 
-	chat := tui.NewVBox(historyBox, inputBox) // компоновка элементов в вертикальном формате
+	view.status = tui.NewStatusBar("")
+	statusBox := tui.NewVBox(view.status)
+	statusBox.SetTitle("Статус")
+	statusBox.SetBorder(true)
+	statusBox.SetSizePolicy(tui.Expanding, tui.Maximum)
+
+	chat := tui.NewVBox(historyBox, statusBox, inputBox) // компоновка элементов в вертикальном формате
+
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
 
 	input.OnSubmit(func(e *tui.Entry) {
@@ -73,6 +91,11 @@ func newChatView(out chan []byte) *boxView {
 			msg := strings.TrimSpace(e.Text()) // удаление пробелов
 			if !strings.HasPrefix(msg, "/") {  // если нет слеша, то отправляется, как обычное сообщение
 				msg = "/msg " + msg
+			}
+			args := strings.Fields(msg)
+			if val, ok := commands[args[0]]; !ok || val != "chat" {
+				in1 <- "| Недопустимая команда для окна чата."
+				return
 			}
 			out <- []byte(msg + "\n")           // запись в канал
 			view.historyScroll.ScrollToBottom() // прокрутка вниз при отправке сообщения
@@ -92,7 +115,7 @@ func newChatView(out chan []byte) *boxView {
 }
 
 // newFileView возвращает новое окно для файлов
-func newFileView(out2 chan []byte) *boxView {
+func newFileView(conn net.Conn, conn2 net.Conn) *boxView {
 	view := &boxView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
@@ -108,14 +131,16 @@ func newFileView(out2 chan []byte) *boxView {
 		tui.NewSpacer(),
 		tui.NewLabel("Tab - переход в окно чата"),
 	)
+	sidebar.SetTitle("Помощь")
 	sidebar.SetBorder(true) // видимая граница панели
 	view.history = tui.NewVBox()
 
-	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки файлов
+	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки сообщений
 	view.historyScroll.ScrollToBottom()
 
 	historyBox := tui.NewVBox(view.historyScroll)
 	historyBox.SetBorder(true)
+	historyBox.SetTitle("Файлы")
 
 	input := tui.NewEntry() // добавление окна для ввода команд, сообщений
 	input.SetFocused(true)
@@ -125,14 +150,38 @@ func newFileView(out2 chan []byte) *boxView {
 	inputBox.SetBorder(true)
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
 
-	chat := tui.NewVBox(historyBox, inputBox) // компоновка элементов в вертикальном формате
+	view.status = tui.NewStatusBar("")
+	statusBox := tui.NewVBox(view.status)
+	statusBox.SetTitle("Статус")
+	statusBox.SetBorder(true)
+	statusBox.SetSizePolicy(tui.Expanding, tui.Maximum)
+
+	chat := tui.NewVBox(historyBox, statusBox, inputBox) // компоновка элементов в вертикальном формате
+
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
+
 	input.OnSubmit(func(e *tui.Entry) {
-		if e.Text() != "" { // если ввод не пуст
-			//msg := strings.TrimSpace(e.Text())  // удаление пробелов
-			//getFile(conn2, msg)                 // запись в канал
-			view.historyScroll.ScrollToBottom() // прокрутка вниз при отправке сообщения
-			e.SetText("")                       // сброс ввода
+		inputBox.SetFocused(false) // отключение ввода
+		if e.Text() != "" {        // если ввод не пуст
+			msg := strings.TrimSpace(e.Text()) // удаление пробелов
+			args := strings.Fields(msg)
+			if val, ok := commands[args[0]]; !ok || val != "file" {
+				in2 <- "| Недопустимая команда для окна файлов."
+				return
+			}
+			if strings.HasPrefix(msg, "/download") {
+				getFile(conn, conn2, msg, view) // запись в канал
+			}
+			if strings.HasPrefix(msg, "/upload") {
+				sendFile(conn, conn2, msg, view) // запись в канал
+			}
+			if strings.HasPrefix(msg, "/list") {
+				historyBox.Remove(1)
+				listFiles(conn, conn2, msg, view) // запись в канал
+				view.historyScroll.ScrollToTop()
+			}
+			e.SetText("") // сброс ввода
+			//inputBox.SetFocused(true)          // возможность ввода
 		}
 	})
 
@@ -142,13 +191,14 @@ func newFileView(out2 chan []byte) *boxView {
 	)
 
 	view.layout.SetBorder(false) // установка границы всего окна
+
 	view.Append(view.layout)
 
 	return view
 }
 
 // newLoginView возвращает новое окно авторизации
-func newLoginView(conn net.Conn) *loginView {
+func newLoginView(out chan []byte) *loginView {
 	view := &loginView{}
 
 	user := tui.NewEntry() // поле ввода для имени пользователя
@@ -169,11 +219,10 @@ func newLoginView(conn net.Conn) *loginView {
 		if user.Text() != "" && password.Text() != "" { // если поля пользователя и пароля не пусты
 			user := strings.TrimSpace(user.Text()) // удаление пробелов
 			password := strings.TrimSpace(password.Text())
-			cmd := fmt.Sprintf("/login %v %v", user, password) // форматирование команды
-			_, err := conn.Write([]byte(cmd + "\n"))           // отправка команды
-			if err != nil {
-				log.Printf("write text `%s` failed with err: %s\n", cmd, err.Error())
-			}
+
+			cmd := fmt.Sprintf("/login %v %v\n", user, password) // форматирование команды
+			form.AppendRow(tui.NewLabel(cmd))
+			out <- []byte(cmd) // отправка команды
 		} else {
 			view.status.SetText("Введите логин и пароль!")
 		}
@@ -185,11 +234,8 @@ func newLoginView(conn net.Conn) *loginView {
 		if user.Text() != "" && password.Text() != "" {
 			user := strings.TrimSpace(user.Text())
 			password := strings.TrimSpace(password.Text())
-			cmd := fmt.Sprintf("/signup %v %v", user, password)
-			_, err := conn.Write([]byte(cmd + "\n"))
-			if err != nil {
-				log.Printf("ошибка `%s` err: %s\n", cmd, err.Error())
-			}
+			cmd := fmt.Sprintf("/signup %v %v\n", user, password)
+			out <- []byte(cmd)
 		} else {
 			view.status.SetText("Введите логин и пароль!")
 		}

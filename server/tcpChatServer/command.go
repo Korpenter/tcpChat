@@ -13,6 +13,9 @@ const (
 	CMD_MSG
 	CMD_QUIT
 	CMD_DOWNLOAD
+	CMD_STARTSEND
+	CMD_STARTSGET
+	CMD_FILES
 )
 
 // модель команды
