@@ -15,9 +15,17 @@ var logo = `       		   			           __           __
 /____  >____/ \___  >__|_ \\___  >__|  
      \/           \/     \/    \/     `
 
-type boxView struct { // модель окна чата и файлов
+type chatView struct { // модель окна чата и файлов
 	tui.Box
 	history       *tui.Box
+	historyScroll *tui.ScrollArea
+	layout        *tui.Box
+	status        *tui.StatusBar
+}
+
+type fileView struct { // модель окна чата и файлов
+	tui.Box
+	table         *tui.Table
 	historyScroll *tui.ScrollArea
 	layout        *tui.Box
 	status        *tui.StatusBar
@@ -40,9 +48,9 @@ var commands = map[string]string{
 }
 
 // newChatView возвращает новое окно чата
-func newChatView(out chan []byte) *boxView {
+func newChatView(out chan []byte) *chatView {
 
-	view := &boxView{}
+	view := &chatView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
 		tui.NewLabel("доступные комнаты:\n/rooms"),
@@ -115,8 +123,8 @@ func newChatView(out chan []byte) *boxView {
 }
 
 // newFileView возвращает новое окно для файлов
-func newFileView(conn net.Conn, conn2 net.Conn) *boxView {
-	view := &boxView{}
+func newFileView(conn net.Conn, conn2 net.Conn) *fileView {
+	view := &fileView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
 
@@ -133,9 +141,9 @@ func newFileView(conn net.Conn, conn2 net.Conn) *boxView {
 	)
 	sidebar.SetTitle("Помощь")
 	sidebar.SetBorder(true) // видимая граница панели
-	view.history = tui.NewVBox()
+	view.table = tui.NewTable(0, 0)
 
-	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки сообщений
+	view.historyScroll = tui.NewScrollArea(view.table) // добавление возможности прокрутки сообщений
 	view.historyScroll.ScrollToBottom()
 
 	historyBox := tui.NewVBox(view.historyScroll)
@@ -170,14 +178,14 @@ func newFileView(conn net.Conn, conn2 net.Conn) *boxView {
 				return
 			}
 			if strings.HasPrefix(msg, "/download") {
-				getFile(conn, conn2, msg, view) // запись в канал
+				getFile(conn, conn2, msg) // запись в канал
 			}
 			if strings.HasPrefix(msg, "/upload") {
-				sendFile(conn, conn2, msg, view) // запись в канал
+				sendFile(conn, conn2, msg) // запись в канал
 			}
 			if strings.HasPrefix(msg, "/list") {
-				historyBox.Remove(1)
-				listFiles(conn, conn2, msg, view) // запись в канал
+				view.table.RemoveRows()
+				listFiles(conn, conn2, msg) // запись в канал
 				view.historyScroll.ScrollToTop()
 			}
 			e.SetText("") // сброс ввода

@@ -201,10 +201,10 @@ func main() {
 						fileView.status.SetText(val)
 						return
 					}
-					label := tui.NewLabel(val)
-					label.SetWordWrap(true)
-					fileView.history.Append(label)
-					fileView.historyScroll.Scroll(0, 1)
+					rows := strings.Fields(val)
+					for _, row := range rows {
+						fileView.table.AppendRow(tui.NewLabel(row))
+					}
 				})
 			}
 		}

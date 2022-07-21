@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func getFile(conn net.Conn, conn2 net.Conn, msg string, fileView *boxView) {
+func getFile(conn net.Conn, conn2 net.Conn, msg string) {
 
 	f, err := os.OpenFile("testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -67,7 +67,7 @@ func getFile(conn net.Conn, conn2 net.Conn, msg string, fileView *boxView) {
 	//checkFileMD5Hash(ROOT + "/" + fname)
 }
 
-func sendFile(conn net.Conn, conn2 net.Conn, msg string, fileView *boxView) {
+func sendFile(conn net.Conn, conn2 net.Conn, msg string) {
 
 	f, err := os.OpenFile("testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -84,29 +84,30 @@ func sendFile(conn net.Conn, conn2 net.Conn, msg string, fileView *boxView) {
 		log.Println(err)
 		return
 	}
-	log.Println("Conn write", msg, len(data), "\n")
+	log.Println("Conn write", msg, len(data))
 	conn.Write([]byte(fmt.Sprintf("%s %d\n", msg, len(data))))
 
 	log.Println("\treader := bufio.NewReader(conn)")
 	reader := bufio.NewReader(conn2)
 	log.Println("\tmsg, err := reader.ReadString('\\n')")
-	stats, err := reader.ReadString('\n')
+	incoming, err := reader.ReadString('\n')
 	log.Println("\tmsg = strings.TrimSpace(msg)")
-	stats = strings.TrimSpace(stats)
+	incoming = strings.TrimSpace(incoming)
 	log.Println("\tcommandArr := strings.Fields(comStr)")
-	statsArr := strings.Fields(stats)
+	statsArr := strings.Fields(incoming)
 	if statsArr[0] != "200" {
-		in2 <- "| Ошибка при загрузке " + stats
-		log.Println(stats)
+		in2 <- "| Ошибка при загрузке " + incoming
+		log.Println(incoming)
 		return
 	}
 
 	io.Copy(conn2, bytes.NewReader(data))
-
+	incoming, err = reader.ReadString('\n')
+	in2 <- incoming
 	// checkFileMD5Hash(ROOT + "/" + fname)
 }
 
-func listFiles(conn net.Conn, conn2 net.Conn, msg string, fileView *boxView) {
+func listFiles(conn net.Conn, conn2 net.Conn, msg string) {
 	f, err := os.OpenFile("testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
