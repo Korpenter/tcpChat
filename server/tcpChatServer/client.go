@@ -26,7 +26,6 @@ type client struct {
 func alphaNumeric(args []string) bool {
 	for _, arg := range args {
 		if !isAlphaNumeric(arg) {
-			fmt.Println(arg)
 			return false
 		}
 	}

@@ -10,27 +10,29 @@ import (
 	"net"
 	"os"
 	"strings"
-	"time"
 )
 
 const rootUpload = "upload"       // папка в которую помещаются файлы для загрузки на сервер
 const rootDownload = "downloaded" // папка в которую помещаются скачанные файлы
 
-var port1 = flag.Int("port1", 8888, "Порт1") // флаг порта, если не введен, 8888
-var addr string                              // а
-var in1 = make(chan string)                  // канал для обновления интерфейса чата
-var in2 = make(chan string)                  // канал для обновления интерфейса файлов
+var port int                // порт, если не введен, 755
+var addr string             // а
+var in1 = make(chan string) // канал для обновления интерфейса чата
+var in2 = make(chan string) // канал для обновления интерфейса файлов
 var f *os.File
 
 // подключение по TCP, по заданному порту
 
 func main() {
-	var conn net.Conn  // tcp соединение
-	var conn2 net.Conn // tcp соединение
+	flag.IntVar(&port, "port", 755, "Порт") // флаг порта
+	var conn net.Conn                       // tcp соединение
+	var conn2 net.Conn                      // tcp соединение
 	var err error
-	f, err = os.OpenFile("clientLogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666) // открытие для логов
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+	if _, err := os.Stat("clientLogs.txt"); os.IsNotExist(err) {
+		f, err = os.OpenFile("clientLogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666) // открытие для логов
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
 	}
 	defer f.Close()
 	log.SetOutput(f)
@@ -38,25 +40,23 @@ func main() {
 	if _, err := os.Stat(rootUpload); os.IsNotExist(err) { // создание папки для загрузок на сервер, если не создана
 		if err = os.Mkdir(rootUpload, 0777); err != nil {
 			log.Println(err)
-			time.Sleep(time.Second * 3)
 			return
 		}
 	}
 	if _, err := os.Stat(rootDownload); os.IsNotExist(err) { // создание папки для загрузок с сервера, если не создана
 		if err = os.Mkdir(rootDownload, 0777); err != nil {
 			log.Println(err)
-			time.Sleep(time.Second * 3)
 			return
 		}
 	}
 
-	out := make(chan []byte)                                     // канал на отправку по соединению conn1
-	log.Println("Запуск на порте:", *port1)                      //, *port2)
-	conn, err = net.Dial("tcp", "localhost:"+fmt.Sprint(*port1)) // подлкючение по TCP сокету
+	out := make(chan []byte)                                   // канал на отправку по соединению conn1
+	log.Println("running on port:", port)                      //, *port2)
+	conn, err = net.Dial("tcp", "localhost:"+fmt.Sprint(port)) // подлкючение по TCP сокету
 	if err != nil {
 		log.Println(err)
 	}
-	conn2, err = net.Dial("tcp", "localhost:"+fmt.Sprint(*port1)) // подлкючение по TCP сокету для файлов
+	conn2, err = net.Dial("tcp", "localhost:"+fmt.Sprint(port)) // подлкючение по TCP сокету для файлов
 	if err != nil {
 		log.Println(err)
 	}
@@ -157,7 +157,7 @@ func main() {
 				in2 <- "| Сервер закрыл сединение"
 				return
 			default:
-				log.Printf("Ошибка сервера: %v\n", err)
+				log.Printf("server error: %v\n", err)
 				return
 			}
 
@@ -189,6 +189,7 @@ func main() {
 					rows := strings.Split(val, "\n") // добавление файлов в список
 					for _, row := range rows {
 						chatView.table.AppendRow(tui.NewLabel(row))
+						chatView.historyScroll.Scroll(0, 1)
 					}
 				})
 			case val, ok := <-in2: // обновление интерфейса
@@ -208,7 +209,7 @@ func main() {
 			}
 		}
 	}()
-	log.Println("Запуск ui")
+	log.Println("init ui")
 	if err := ui.Run(); err != nil {
 		panic(err)
 	} // запуск UI

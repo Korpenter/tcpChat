@@ -33,7 +33,7 @@ func getFile(conn net.Conn, conn2 net.Conn, msg string) {
 	fileSize, err := strconv.ParseInt(statsArr[2], 10, 64) // получение размера файла для создания
 	if err != nil || fileSize == -1 {
 		log.Println("file size error", err)
-		in2 <- "| Ошибка размера файла " + err.Error()
+		in2 <- "| Ошибка открытия файла или файл не существует "
 		return
 	}
 	conn.Write([]byte(fmt.Sprintf("/startdsend %s\n", strings.TrimPrefix(msg, "/download ")))) // подтверждение закачки
@@ -52,12 +52,11 @@ func getFile(conn net.Conn, conn2 net.Conn, msg string) {
 func sendFile(conn net.Conn, conn2 net.Conn, msg string) {
 	log.SetOutput(f)
 	log.Println("uploading file", msg)
-	f, err := os.OpenFile("testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer f.Close()
 	args := strings.Fields(msg)
+	if len(args) < 2 {
+		in2 <- "| Неправильный формат команды."
+		return
+	}
 	data, err := ioutil.ReadFile(rootUpload + "/" + args[1]) // чтение файла для отправки
 	if err != nil {
 		in2 <- "| Ошибка открытия файла " + err.Error()

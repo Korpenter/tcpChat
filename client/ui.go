@@ -45,15 +45,15 @@ func newChatView(out chan []byte) *boxView {
 	view := &boxView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
-		tui.NewLabel("доступные комнаты:\n/rooms"),
-		tui.NewLabel("войти в комнату:\n/join"),
-		tui.NewLabel("выйти:\n/quit"),
-		tui.NewLabel("сообщение:\nтекст без '/'"),
+		tui.NewLabel("Доступные комнаты:\n/rooms"),
+		tui.NewLabel("Войти в комнату:\n/join"),
+		tui.NewLabel("Выйти:\n/quit"),
+		tui.NewLabel("Сообщение:\nтекст без '/'"),
 		tui.NewLabel("\nПеремещение"),
-		tui.NewLabel("пролистать чат вверх:\nUpArrow"),
-		tui.NewLabel("пролистать чат вниз:\nDownArrow"),
-		tui.NewLabel("первое сообщение:\nLeftArrow"),
-		tui.NewLabel("последнее сообщение:\nRightArrow"),
+		tui.NewLabel("Пролистать чат вверх:\nUpArrow"),
+		tui.NewLabel("Пролистать чат вниз:\nDownArrow"),
+		tui.NewLabel("Первое сообщение:\nLeftArrow"),
+		tui.NewLabel("Последнее сообщение:\nRightArrow"),
 		tui.NewSpacer(),
 		tui.NewLabel("Tab - переход в окно чата"),
 	)
@@ -86,7 +86,7 @@ func newChatView(out chan []byte) *boxView {
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
 
 	input.OnSubmit(func(e *tui.Entry) { // при подтверждении ввода на Enter
-		if e.Text() != "" {             // если ввод не пуст
+		if e.Text() != "" { // если ввод не пуст
 			msg := strings.TrimSpace(e.Text()) // удаление пробелов
 			if !strings.HasPrefix(msg, "/") {  // если нет слеша, то отправляется, как обычное сообщение
 				msg = "/msg " + msg
@@ -119,14 +119,14 @@ func newFileView(conn net.Conn, conn2 net.Conn) *boxView {
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
 
-		tui.NewLabel("просмотр общих файлов:\nlist"),
-		tui.NewLabel("скачать общий файл:\ndownload <filename>"),
-		tui.NewLabel("загрузить общий:\nupload <filename>"),
+		tui.NewLabel("Просмотр общих файлов:\n/list"),
+		tui.NewLabel("Скачать общий файл:\n/download <filename>"),
+		tui.NewLabel("Загрузить общий:\n/upload <filename>"),
 		tui.NewLabel("\nПеремещение"),
-		tui.NewLabel("пролистать окно файлов вверх:\nUpArrow"),
-		tui.NewLabel("пролистать окно файлов вниз:\nDownArrow"),
-		tui.NewLabel("первое файл:\nLeftArrow"),
-		tui.NewLabel("последнее файл:\nRightArrow"),
+		tui.NewLabel("Пролистать окно файлов вверх:\nUpArrow"),
+		tui.NewLabel("Пролистать окно файлов вниз:\nDownArrow"),
+		tui.NewLabel("Первое файл:\nLeftArrow"),
+		tui.NewLabel("Последнее файл:\nRightArrow"),
 		tui.NewSpacer(),
 		tui.NewLabel("Tab - переход в окно чата"),
 	)
@@ -214,7 +214,7 @@ func newLoginView(out chan []byte) *loginView {
 
 	login := tui.NewButton("[Вход]") // кнопка для авторизации
 
-	login.OnActivated(func(b *tui.Button) {             // при нажатии копки авторизации
+	login.OnActivated(func(b *tui.Button) { // при нажатии копки авторизации
 		if user.Text() != "" && password.Text() != "" { // если поля пользователя и пароля не пусты
 			user := strings.TrimSpace(user.Text()) // удаление пробелов
 			password := strings.TrimSpace(password.Text())

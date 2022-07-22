@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var port = flag.Int("port", 8888, "Порт") // флаг порта, если не введен, 8888
+var port int // флаг порта, если не введен, 8888
 
 func main() {
 	var err error
@@ -21,8 +21,11 @@ func main() {
 		}
 	}
 
-	fmt.Println("Запуск сервера на порте: ", *port)
-	tcpChatServer.Start(*port)                                                                    // запуск сервера
+	flag.IntVar(&port, "port", 755, "server port")
+	flag.Parse()
+
+	fmt.Println("Запуск сервера на порте: ", port)
+	tcpChatServer.Start(port)                                                                     // запуск сервера
 	tcpChatServer.F, err = os.OpenFile("serverLogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666) // открытие для логов
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
