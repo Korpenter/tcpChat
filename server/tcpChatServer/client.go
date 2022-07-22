@@ -14,8 +14,8 @@ var isAlphaNumeric = regexp.MustCompile(`^[A-Za-z0-9]+$`).MatchString
 
 // Модель клинта
 type client struct {
-	chatConn net.Conn // TCP соединение
-	fileConn net.Conn
+	chatConn net.Conn       // TCP соединение
+	fileConn net.Conn       // TCP соединение
 	username string         // имя пользователя
 	room     *room          // в какой комнате
 	commands chan<- command // команды посланные пользователем
@@ -40,13 +40,9 @@ func (c *client) readInput(db *mongo.Client) {
 		if err != nil {
 			return
 		}
-
 		msg = strings.Trim(msg, "\r\n")
-		fmt.Println("msg = ", msg)
 		args := strings.Split(msg, " ")
-		fmt.Println("args = ", args)
 		cmd := strings.TrimSpace(args[0])
-		fmt.Println("cmd = ", cmd)
 		switch cmd { // выполнение блока в зависимости от команды
 		case "/login": // авторизация
 			if c.loggedIn { // если уже авторизован
@@ -59,7 +55,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{ // отправление команды в канал команд пользователя для выполнения
-				id:     CMD_LOGIN,
+				id:     cmdLogin,
 				client: c,
 				args:   args,
 				db:     db,
@@ -74,7 +70,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_SIGNUP,
+				id:     cmdSignup,
 				client: c,
 				args:   args,
 				db:     db,
@@ -85,7 +81,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_ROOMS,
+				id:     cmdRooms,
 				client: c,
 				args:   args,
 			}
@@ -95,7 +91,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_JOIN,
+				id:     cmdJoin,
 				client: c,
 				args:   args,
 			}
@@ -105,7 +101,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_MSG,
+				id:     cmdMsg,
 				client: c,
 				args:   args,
 			}
@@ -115,7 +111,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_DOWNLOAD,
+				id:     cmdDownload,
 				client: c,
 				args:   args,
 			}
@@ -125,27 +121,27 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_STARTSEND,
+				id:     cmdStartSend,
 				client: c,
 				args:   args,
 			}
-		case "/upload": // скачка файла
+		case "/upload": // закачка файла
 			if !c.loggedIn {
 				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
-				id:     CMD_STARTSGET,
+				id:     cmdStartsGet,
 				client: c,
 				args:   args,
 			}
-		case "/list": // скачка файла
+		case "/list": // список файлов
 			if !c.loggedIn {
 				c.notif(fmt.Sprintf("не авторизован: %s", cmd))
 				break
 			}
 			c.commands <- command{
-				id:     CMD_FILES,
+				id:     cmdFiles,
 				client: c,
 			}
 		case "/quit": // отключение
@@ -154,7 +150,7 @@ func (c *client) readInput(db *mongo.Client) {
 				break
 			}
 			c.commands <- command{
-				id:     CMD_QUIT,
+				id:     cmdQuit,
 				client: c,
 				args:   args,
 			}

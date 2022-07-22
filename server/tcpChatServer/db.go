@@ -13,8 +13,9 @@ type User struct {
 	Password string `bson:"password,omitempty"` // пароль
 }
 
-// getdb отвечает за подлючение к бд
-func getdb(mongodb string) *mongo.Client {
+// getDB отвечает за подлючение к бд
+func getDB(mongodb string) *mongo.Client {
+	log.SetOutput(F)
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongodb)) // подкючение к mongoDB
 	if err != nil {
 		log.Fatal(err)

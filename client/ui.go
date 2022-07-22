@@ -15,15 +15,7 @@ var logo = `       		   			           __           __
 /____  >____/ \___  >__|_ \\___  >__|  
      \/           \/     \/    \/     `
 
-type chatView struct { // модель окна чата и файлов
-	tui.Box
-	history       *tui.Box
-	historyScroll *tui.ScrollArea
-	layout        *tui.Box
-	status        *tui.StatusBar
-}
-
-type fileView struct { // модель окна чата и файлов
+type boxView struct { // модель окна чата и файлов
 	tui.Box
 	table         *tui.Table
 	historyScroll *tui.ScrollArea
@@ -37,7 +29,7 @@ type loginView struct { // модель окна авторизации
 	status *tui.StatusBar
 }
 
-var commands = map[string]string{
+var commands = map[string]string{ // команды окон чата и файлов
 	"/rooms":    "chat",
 	"/join":     "chat",
 	"/quit":     "chat",
@@ -48,9 +40,9 @@ var commands = map[string]string{
 }
 
 // newChatView возвращает новое окно чата
-func newChatView(out chan []byte) *chatView {
+func newChatView(out chan []byte) *boxView {
 
-	view := &chatView{}
+	view := &boxView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
 		tui.NewLabel("доступные комнаты:\n/rooms"),
@@ -67,9 +59,8 @@ func newChatView(out chan []byte) *chatView {
 	)
 	sidebar.SetBorder(true) // видимая граница панели
 	sidebar.SetTitle("Помощь")
-	view.history = tui.NewVBox()
-
-	view.historyScroll = tui.NewScrollArea(view.history) // добавление возможности прокрутки сообщений
+	view.table = tui.NewTable(0, 0)                    // таблица для файлов
+	view.historyScroll = tui.NewScrollArea(view.table) // добавление возможности прокрутки сообщений
 	view.historyScroll.ScrollToBottom()
 
 	historyBox := tui.NewVBox(view.historyScroll)
@@ -83,7 +74,7 @@ func newChatView(out chan []byte) *chatView {
 	inputBox := tui.NewHBox(input)
 	inputBox.SetBorder(true)
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
-
+	inputBox.SetTitle("Ввод")
 	view.status = tui.NewStatusBar("")
 	statusBox := tui.NewVBox(view.status)
 	statusBox.SetTitle("Статус")
@@ -94,8 +85,8 @@ func newChatView(out chan []byte) *chatView {
 
 	chat.SetSizePolicy(tui.Expanding, tui.Expanding)
 
-	input.OnSubmit(func(e *tui.Entry) {
-		if e.Text() != "" { // если ввод не пуст
+	input.OnSubmit(func(e *tui.Entry) { // при подтверждении ввода на Enter
+		if e.Text() != "" {             // если ввод не пуст
 			msg := strings.TrimSpace(e.Text()) // удаление пробелов
 			if !strings.HasPrefix(msg, "/") {  // если нет слеша, то отправляется, как обычное сообщение
 				msg = "/msg " + msg
@@ -123,8 +114,8 @@ func newChatView(out chan []byte) *chatView {
 }
 
 // newFileView возвращает новое окно для файлов
-func newFileView(conn net.Conn, conn2 net.Conn) *fileView {
-	view := &fileView{}
+func newFileView(conn net.Conn, conn2 net.Conn) *boxView {
+	view := &boxView{}
 	sidebar := tui.NewVBox( // боковая панель с подксказками
 		tui.NewLabel("Команды"),
 
@@ -140,9 +131,8 @@ func newFileView(conn net.Conn, conn2 net.Conn) *fileView {
 		tui.NewLabel("Tab - переход в окно чата"),
 	)
 	sidebar.SetTitle("Помощь")
-	sidebar.SetBorder(true) // видимая граница панели
-	view.table = tui.NewTable(0, 0)
-
+	sidebar.SetBorder(true)                            // видимая граница панели
+	view.table = tui.NewTable(0, 0)                    // таблица для файлов
 	view.historyScroll = tui.NewScrollArea(view.table) // добавление возможности прокрутки сообщений
 	view.historyScroll.ScrollToBottom()
 
@@ -157,6 +147,7 @@ func newFileView(conn net.Conn, conn2 net.Conn) *fileView {
 	inputBox := tui.NewHBox(input)
 	inputBox.SetBorder(true)
 	inputBox.SetSizePolicy(tui.Expanding, tui.Maximum)
+	inputBox.SetTitle("Ввод")
 
 	view.status = tui.NewStatusBar("")
 	statusBox := tui.NewVBox(view.status)
@@ -223,14 +214,12 @@ func newLoginView(out chan []byte) *loginView {
 
 	login := tui.NewButton("[Вход]") // кнопка для авторизации
 
-	login.OnActivated(func(b *tui.Button) { // при нажатии копки авторизации
+	login.OnActivated(func(b *tui.Button) {             // при нажатии копки авторизации
 		if user.Text() != "" && password.Text() != "" { // если поля пользователя и пароля не пусты
 			user := strings.TrimSpace(user.Text()) // удаление пробелов
 			password := strings.TrimSpace(password.Text())
-
 			cmd := fmt.Sprintf("/login %v %v\n", user, password) // форматирование команды
-			form.AppendRow(tui.NewLabel(cmd))
-			out <- []byte(cmd) // отправка команды
+			out <- []byte(cmd)                                   // отправка команды
 		} else {
 			view.status.SetText("Введите логин и пароль!")
 		}

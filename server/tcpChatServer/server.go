@@ -19,12 +19,14 @@ import (
 
 const FileStorageRoot = "server_storage"
 
+var F *os.File
+
 // модель сервера
 type server struct {
 	rooms    map[string]*room     // активные комнаты
 	commands chan command         // канал поступающих команд
 	online   map[net.Conn]*client // пользователи в сети
-	tempmap  map[net.Conn]*client
+	tempmap  map[net.Conn]*client // пользователи до авторизации
 }
 
 // newServer возвращает новый сервер
@@ -44,68 +46,51 @@ func Start(port int) {
 
 // serverStart запускает сервер на заданном порте
 func serverStart(port int) {
+	log.SetOutput(F)
 	s := newServer()
 	go s.run() // запуск рутин обработки команд
-	fmt.Println("Запуск сервера на порте: " + fmt.Sprint(port))
+	log.Println("Запуск сервера на порте: " + fmt.Sprint(port))
 	// подключение к бд
-	db := getdb("mongodb+srv://Doronin4941:PracticePass@cluster0.05xmh.mongodb.net/?retryWrites=true&w=majority")
+	db := getDB("mongodb+srv://Doronin4941:PracticePass@cluster0.05xmh.mongodb.net/?retryWrites=true&w=majority")
 	listener, err := net.Listen("tcp", ":"+fmt.Sprint(port)) // запуск на TCP socket для приема входящих соединений
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	fmt.Println("Сервер запущен на порте: " + fmt.Sprint(port))
-
-	//fmt.Println("Запуск сервера на порте: " + fmt.Sprint(port+1))
-	//listener2, notif := net.Listen("tcp", ":"+fmt.Sprint(port+1)) // запуск на TCP socket для приема входящих соединений
-	//if notif != nil {
-	//	fmt.Println(notif)
-	//	return
-	//}
 	defer listener.Close()
-
 	for {
-		conn, err := listener.Accept()
+		conn, err := listener.Accept() // для каждого поступаещго соединения
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("New connection found!")
-		s.regConn(conn, db)
+		log.Println("New connection found!", conn.RemoteAddr().String())
+		s.regConn(conn, db) // вызывается функция регистрации
 	}
-	//defer listener2.Close()
-	//fmt.Println("Сервер запущен на порте: " + fmt.Sprint(port+1))
-	//s.acceptLoop(listener, db) // для каждого подключающегося клиента создается модель newClient
-	//s.acceptLoop(listener2, db) // run in the main goroutine
 }
 
+// regConn регистрирует новые соединения
 func (s *server) regConn(conn net.Conn, db *mongo.Client) {
+	log.SetOutput(F)
 	conn.Write([]byte("50" + conn.RemoteAddr().String() + "\n"))
 	for {
 		msg, err := bufio.NewReader(conn).ReadString('\n') // чтение из соединения
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 		msg = strings.Trim(msg, "\r\n")
-		fmt.Println("msg = ", msg)
 		args := strings.Split(msg, " ")
-		fmt.Println("args = ", args)
 		code := strings.TrimSpace(args[0])
-		fmt.Println("code = ", args[0])
 		switch code {
 		case "100":
-			s.newClient(conn, db)
-			fmt.Println("101")
+			s.newClient(conn, db) // регистрация первого соединения клиента
 			return
 		case "105":
-			fmt.Println("105")
-			fmt.Println("addr = ", args[1])
 			for _, c := range s.tempmap {
-				fmt.Println("c.chatConn.RemoteAddr().String() = ", c.chatConn.RemoteAddr().String())
-				fmt.Println(args[1] == c.chatConn.RemoteAddr().String())
 				if args[1] == c.chatConn.RemoteAddr().String() {
-					c.fileConn = conn
-					fmt.Println("Зарегистрировано второе соединение")
+					log.Println("Зарегистрировано второе соединение клиента:", c)
+					c.fileConn = conn // регистрация второго соединения клиента
 					return
 				}
 			}
@@ -118,25 +103,25 @@ func (s *server) run() {
 	// для каждой команды определяется тип и вызывается функция обработчик
 	for cmd := range s.commands {
 		switch cmd.id {
-		case CMD_LOGIN:
+		case cmdLogin:
 			s.login(cmd.client, cmd.args, cmd.db)
-		case CMD_SIGNUP:
+		case cmdSignup:
 			s.signUP(cmd.client, cmd.args, cmd.db)
-		case CMD_JOIN:
+		case cmdJoin:
 			s.join(cmd.client, cmd.args)
-		case CMD_ROOMS:
+		case cmdRooms:
 			s.listRooms(cmd.client)
-		case CMD_MSG:
+		case cmdMsg:
 			s.msg(cmd.client, cmd.args)
-		case CMD_DOWNLOAD:
+		case cmdDownload:
 			s.sendFileMsg(cmd.client, cmd.args)
-		case CMD_STARTSEND:
+		case cmdStartSend:
 			s.sendFileData(cmd.client, cmd.args)
-		case CMD_STARTSGET:
+		case cmdStartsGet:
 			s.getFile(cmd.client, cmd.args)
-		case CMD_FILES:
+		case cmdFiles:
 			s.listFiles(cmd.client)
-		case CMD_QUIT:
+		case cmdQuit:
 			s.quit(cmd.client)
 		}
 	}
@@ -144,6 +129,7 @@ func (s *server) run() {
 
 // newClient функция возвращает модель клиента
 func (s *server) newClient(conn net.Conn, db *mongo.Client) {
+	log.SetOutput(F)
 	log.Printf("Новый пользователь: %s", conn.RemoteAddr().String())
 
 	c := &client{
@@ -156,14 +142,13 @@ func (s *server) newClient(conn net.Conn, db *mongo.Client) {
 
 // login функция отвечает за авторизацию пользователя
 func (s *server) login(c *client, args []string, db *mongo.Client) {
+	log.SetOutput(F)
 	//контекст -  если операция не выполнится за 80 секунд - отмена
 	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Second)
 	defer cancel()
-	fmt.Println("Новая попытка входа: ", args)
-	fmt.Println(s.online)
+	log.Println("Новая попытка входа: ", args)
 	// проверка авторизована ли эта учетная запись, и отключение авторизованног клиента в этом случае
 	for _, v := range s.online {
-		fmt.Println(args[1], v)
 		if args[1] == v.username {
 			v.msg("Учетная запись исползована на другом пк, отключение")
 			v.chatConn.Close()
@@ -185,19 +170,19 @@ func (s *server) login(c *client, args []string, db *mongo.Client) {
 	var userField bson.M
 	err := user.Err()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.notif("Пользователь не найден")
 		return
 	}
 
 	err = user.Decode(&userField) // раскодирование из BSON
 	if err != nil {
-		c.notif("Ошибка базы данных" + err.Error() + "\n")
+		c.notif("Ошибка базы данных" + err.Error())
 		return
 	}
 
 	if userField["password"] == args[2] { // проверка пароля
-		c.chatConn.Write([]byte("201\n"))
+		c.msg("201")
 		c.loggedIn = true
 		c.username = args[1]
 		delete(s.tempmap, c.chatConn)
@@ -211,13 +196,14 @@ func (s *server) login(c *client, args []string, db *mongo.Client) {
 
 // signUP отвечает за авториза
 func (s *server) signUP(c *client, args []string, db *mongo.Client) {
+	log.SetOutput(F)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	if len(args) != 3 {
 		c.notif("Введите логин и пароль")
 		return
 	}
-	fmt.Println("новая попытка регистрации: ", args)
+	log.Println("новая попытка регистрации: ", args)
 	usersDb := db.Database("users")
 	userCollection := usersDb.Collection("users")
 
@@ -238,7 +224,7 @@ func (s *server) signUP(c *client, args []string, db *mongo.Client) {
 		c.notif("Ошибка базы данных")
 		return
 	}
-	c.chatConn.Write([]byte("202\n"))
+	c.msg("202")
 	c.username = args[1]     // установка имени пользователя
 	s.online[c.chatConn] = c // добавление в онлайн список
 	c.loggedIn = true
@@ -246,6 +232,7 @@ func (s *server) signUP(c *client, args []string, db *mongo.Client) {
 
 // join отвечает за вход в комнату
 func (s *server) join(c *client, args []string) {
+	log.SetOutput(F)
 	if len(args) != 2 {
 		c.notif("неверный формат команды")
 		return
@@ -284,12 +271,13 @@ func (s *server) msg(c *client, args []string) {
 		return
 	}
 
-	c.room.broadcast(c.username + ": " + strings.Join(args[1:len(args)], " "))
+	c.room.broadcast(c.username + ": " + strings.Join(args[1:], " "))
 }
 
 // quit отвечает за отключение от сервера и закрытие соединения
 func (s *server) quit(c *client) {
-	log.Printf("!!! клиент отключился: %s", c.chatConn.RemoteAddr().String())
+	log.SetOutput(F)
+	log.Printf("клиент отключился: %s", c.chatConn.RemoteAddr().String())
 
 	s.quitCurrentRoom(c)         // выход из комнаты
 	for _, v := range s.online { // удаление из списка онлайн пользователей
@@ -313,33 +301,30 @@ func (s *server) quitCurrentRoom(c *client) {
 	}
 }
 
+//
 func (s *server) sendFileMsg(c *client, args []string) {
+	log.SetOutput(F)
 	if len(args) != 2 {
 		c.notifFile(fmt.Sprintf("Неверный формат команды %v", args))
 		return
 	}
-	fmt.Println("1")
 	inputFile, err := os.Open(path.Join(FileStorageRoot, args[1]))
 	if err != nil {
 		log.Println(err.Error())
 		c.notifFile(err.Error())
 		return
 	}
-	fmt.Println("2")
 	defer inputFile.Close()
 	stats, _ := inputFile.Stat()
-	fmt.Println("3")
 	send := fmt.Sprintf("download %s %d", args[1], stats.Size())
-	fmt.Println("4")
 	c.msgFile(send)
-	fmt.Println("5")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
-	fmt.Println("sent")
 }
 
 func (s *server) sendFileData(c *client, args []string) {
+	log.SetOutput(F)
 	if len(args) != 2 {
 		c.notifFile(fmt.Sprintf("неверный формат команды %v", args))
 		return
@@ -363,19 +348,21 @@ func (s *server) sendFileData(c *client, args []string) {
 	log.Println("File ", args[1], " Send successfully")
 }
 
+// getFile получает файл от клиента и сохраняет на сервере
 func (s *server) getFile(c *client, args []string) {
-	if len(args) != 3 {
+	log.SetOutput(F)
+	if len(args) != 3 { // проверка формата команды
 		c.notifFile(fmt.Sprintf("| Неверный формат команды %v", args))
 		return
 	}
-	fmt.Println("check file size")
-	fileSize, err := strconv.ParseInt(args[2], 10, 64)
+	fileSize, err := strconv.ParseInt(args[2], 10, 64) // размер файла
 	if err != nil || fileSize == -1 {
 		log.Println(err.Error())
 		c.notifFile("Ошбика размера файла")
 		return
 	}
-	fileName := args[1]
+	fileName := args[1] // имя файла
+	// проверка расширения и добавление времени создания для избежания дубликатов
 	if strings.IndexByte(fileName, '.') != -1 {
 		fileName = fmt.Sprintf("%v_%v%v", fileName[:strings.IndexByte(args[1], '.')], time.Now().UnixMilli(),
 			fileName[strings.IndexByte(args[1], '.'):])
@@ -383,7 +370,7 @@ func (s *server) getFile(c *client, args []string) {
 		fileName = fmt.Sprintf("%v_%v", fileName, time.Now().UnixMilli())
 	}
 
-	outputFile, err := os.Create(path.Join(FileStorageRoot, fileName))
+	outputFile, err := os.Create(path.Join(FileStorageRoot, fileName)) // создание файла
 
 	if err != nil {
 		log.Println(err.Error())
@@ -391,29 +378,29 @@ func (s *server) getFile(c *client, args []string) {
 		return
 	}
 	defer outputFile.Close()
-	fmt.Println("start upload")
-	c.msgFile("200 Start upload!")
+	log.Println("start upload", args)
+	c.msgFile("200 Start upload!") // подтверждения начала загрузки
 
-	//Эта функция использует буфер в 32 КБ
-	io.Copy(outputFile, io.LimitReader(c.fileConn, fileSize))
+	io.Copy(outputFile, io.LimitReader(c.fileConn, fileSize)) // запись в файл из соединения
 
 	log.Println("File " + args[1] + " uploaded successfully\n")
 	c.notifFile(fmt.Sprintf("| Успешно загружен на сервер %v", fileName))
 }
 
+// listFiles отправляет клиенту список файлов на сервере
 func (s *server) listFiles(c *client) {
-	var files strings.Builder
-	fileInfo, err := ioutil.ReadDir(FileStorageRoot)
+	log.SetOutput(F)
+	var files strings.Builder                        // объект для построения строки
+	fileInfo, err := ioutil.ReadDir(FileStorageRoot) // чтение директории
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
-
-	for _, file := range fileInfo {
-		files.WriteString(">" + file.Name() + "\n")
+	files.WriteString(fmt.Sprintf("Количество файлов - %v\n", len(fileInfo)))
+	for i, file := range fileInfo { // построение строки
+		files.WriteString(fmt.Sprintf("%v. %v\n", i, file.Name()))
 	}
 	files.WriteString("|")
-	fmt.Println(files.String())
-	c.msgFile(files.String())
-	fmt.Println("sent")
+	c.msgFile(files.String()) // отправка сообщеения
+	log.Println("sent")
 }

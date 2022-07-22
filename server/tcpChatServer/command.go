@@ -6,16 +6,16 @@ type commandID int
 
 // id существующих команд
 const (
-	CMD_LOGIN commandID = iota // инкремент
-	CMD_SIGNUP
-	CMD_JOIN
-	CMD_ROOMS
-	CMD_MSG
-	CMD_QUIT
-	CMD_DOWNLOAD
-	CMD_STARTSEND
-	CMD_STARTSGET
-	CMD_FILES
+	cmdLogin commandID = iota // инкремент
+	cmdSignup
+	cmdJoin
+	cmdRooms
+	cmdMsg
+	cmdQuit
+	cmdDownload
+	cmdStartSend
+	cmdStartsGet
+	cmdFiles
 )
 
 // модель команды
